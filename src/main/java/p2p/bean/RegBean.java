@@ -1,6 +1,6 @@
 package p2p.bean;
 
-public class KeyBean {
+public class RegBean {
 
     private String key;
 

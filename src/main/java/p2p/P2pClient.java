@@ -7,34 +7,40 @@ import connect.network.nio.NioReceive;
 import connect.network.nio.NioSender;
 import json.JsonUtils;
 import p2p.bean.AddressBean;
-import p2p.bean.KeyBean;
 import util.LogDog;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.channels.SocketChannel;
 
 /**
  * P2P客户端
  * Created by prolog on 11/23/2016.
  */
 
-public class P2PSClient extends NioClientTask {
+public class P2pClient extends NioClientTask {
 
+    private int localPort;
 
-    public P2PSClient(String ip, int port) {
+    public P2pClient(String ip, int port, int localPort) {
         setAddress(ip, port);
-        NioSender sender = new NioSender();
-        setSender(sender);
-        NioReceive receive = new NioReceive(this, "onReceiveData");
-        setReceive(receive);
+        this.localPort = localPort;
+        setSender(new NioSender());
+        setReceive(new NioReceive(this, "onReceiveData"));
+    }
+
+    @Override
+    protected void onConfigSocket(SocketChannel socket) {
+        try {
+            socket.bind(new InetSocketAddress(getHost(), localPort));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     public void onConnectSocketChannel(boolean isConnect) {
-        LogDog.i("==> P2PSClient onConnect = " + isConnect);
-        KeyBean keyBean = new KeyBean();
-        keyBean.setKey("dhu23dh8f3c834fhn24fh919xmb3");
-        String json = JsonUtils.toJson(keyBean);
-        if (isConnect) {
-            getSender().sendData(json.getBytes());
-        }
+        LogDog.i("==> P2pClient onConnect = " + isConnect);
     }
 
     private void onReceiveData(byte[] data) {

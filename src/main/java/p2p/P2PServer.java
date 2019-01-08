@@ -4,10 +4,11 @@ package p2p;
 import connect.network.nio.*;
 import json.JsonUtils;
 import p2p.bean.AddressBean;
-import p2p.bean.KeyBean;
+import p2p.bean.RegBean;
 import util.IoUtils;
 import util.LogDog;
 import util.NetUtils;
+import util.StringUtils;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -43,9 +44,9 @@ public class P2PServer extends NioServerTask {
     protected void onAcceptServerChannel(SocketChannel channel) {
         LogDog.e("has client connect P2PServer ======>");
         Client client = new Client(channel);
-        NioClientFactory serverFactory = NioClientFactory.getFactory();
-        serverFactory.open();
-        serverFactory.addTask(client);
+        NioClientFactory clientFactory = NioClientFactory.getFactory();
+        clientFactory.open();
+        clientFactory.addTask(client);
     }
 
     @Override
@@ -60,7 +61,7 @@ public class P2PServer extends NioServerTask {
     }
 
     private class Client extends NioClientTask {
-
+        private String key;
 
         public Client(SocketChannel channel) {
             super(channel);
@@ -80,7 +81,9 @@ public class P2PServer extends NioServerTask {
             LogDog.e("============================================= ");
             LogDog.e("==> Client onCloseSocketChannel !!! ");
             LogDog.e("============================================= ");
-            nioClientTaskMap.remove(Client.this);
+            if (StringUtils.isNotEmpty(key)) {
+                nioClientTaskMap.remove(key);
+            }
         }
 
         private class ClientReceive extends NioReceive {
@@ -89,7 +92,7 @@ public class P2PServer extends NioServerTask {
                 try {
                     AddressBean addressBean = new AddressBean();
                     InetSocketAddress address = (InetSocketAddress) channel.getRemoteAddress();
-                    addressBean.setIp(address.getHostName());
+                    addressBean.setIp(address.getAddress().getHostAddress());
                     addressBean.setPort(address.getPort());
                     sender.sendData(JsonUtils.toJson(addressBean).getBytes());
                 } catch (IOException e) {
@@ -104,7 +107,7 @@ public class P2PServer extends NioServerTask {
                 if (data != null) {
                     String json = new String(data);
                     LogDog.d("==> ClientReceive data = " + json);
-                    KeyBean keyBean = JsonUtils.toEntity(KeyBean.class, json);
+                    RegBean keyBean = JsonUtils.toEntity(RegBean.class, json);
                     if (nioClientTaskMap.containsKey(keyBean.getKey())) {
                         NioClientTask task = nioClientTaskMap.get(keyBean.getKey());
                         NioSender otherSender = task.getSender();
@@ -113,6 +116,7 @@ public class P2PServer extends NioServerTask {
                         sendAddressInfo(otherChannel, getSender());
                     } else {
                         nioClientTaskMap.put(keyBean.getKey(), Client.this);
+                        key = keyBean.getKey();
                     }
                 }
             }
